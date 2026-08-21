@@ -60,12 +60,11 @@ class MCPClient:
         from mcp.client.sse import sse_client
         from mcp import ClientSession
 
-        # 增加超时：SSE Server 首次响应可能较慢
         self._streams = sse_client(
             self.url,
             headers=self.headers,
-            timeout=10.0,   # HTTP request timeout
-            sse_read_timeout=120.0,  # SSE event stream read timeout
+            timeout=self.timeout,
+            sse_read_timeout=30.0,
         )
         reader, writer = await self._streams.__aenter__()
         self._session = ClientSession(reader, writer)
