@@ -92,12 +92,13 @@ curl http://localhost:8000/health
 ├── config/
 │   ├── secrets/               ← 🔒 敏感配置（不提交）
 │   │   └── .env               ← 飞书 + LLM 凭证
-│   └── mcp-server/            ← 🧩 MCP Server 配置（可选）
-│       └── mcp.yaml           ← SSE endpoints + 认证头
+│   ├── mcp-server/            ← 🧩 MCP Server 配置（可选）
+│   │   └── mcp.yaml           ← SSE endpoints + 认证头
+│   └── system_prompt.md       ← 🗣️ 人设/系统提示词（git 跟踪，Markdown）
 ├── main.py                    # FastAPI 入口
 ├── bot/                       # 飞书 Bot 核心逻辑
 ├── llm/                       # LLM 客户端
-├── mcp/                       # MCP 插件层（SSE Transport）
+├── mcp_plugin/                # MCP 插件层（SSE Transport；改名自 mcp/ 以免与 pip 的 mcp SDK 撞包名）
 ├── utils/                     # 工具函数
 ├── tests/                     # 单元测试
 ├── Dockerfile                 # 容器化构建
@@ -113,7 +114,7 @@ curl http://localhost:8000/health
 docker compose up -d   # 热重载环境变量
 ```
 
-编辑 `config/mcp-server/mcp.yaml` 后执行：
+编辑 `config/mcp-server/mcp.yaml` 或 `config/system_prompt.md`（人设/系统提示词，Markdown 文档，直接改不用管 YAML 缩进转义）后执行：
 
 ```bash
 docker compose restart feishu-bot
@@ -205,7 +206,7 @@ feishu-bot-service/
 ├── llm/                 # LLM 客户端
 │   ├── __init__.py
 │   └── client.py        # LLMClient + OpenAIClient
-├── mcp/                 # [新增] MCP 插件层（SSE Transport）
+├── mcp_plugin/          # MCP 插件层（SSE Transport；曾用名 mcp/，与 pip 的 mcp SDK 撞包名已改名）
 │   ├── __init__.py
 │   ├── client.py        # MCPClient — SSE transport 连接
 │   ├── manager.py       # MCPManager — 多 Server 管理

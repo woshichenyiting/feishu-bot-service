@@ -2,4 +2,16 @@
 config/secrets/.env
 config/mcp-server/mcp.yaml
 config/local_config.yaml
+.env
 
+# 构建产物（镜像 tar 等）
+dist/
+
+# Python / 工具缓存
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+
+# macOS
+.DS_Store

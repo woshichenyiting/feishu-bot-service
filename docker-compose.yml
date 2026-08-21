@@ -15,13 +15,23 @@ services:
     volumes:
       - ./config/mcp-server/mcp.yaml:/app/config/mcp.yaml:ro
       - ./config/local_config.yaml:/app/config.local.yaml:ro
+      # system_prompt.md 本身是 git 跟踪文件（改人设是常规变更，不是部署
+      # 密钥），单独挂载是为了 git pull 之后 restart 就生效，不用重新 build
+      - ./config/system_prompt.md:/app/config/system_prompt.md:ro
     # 环境变量：告诉应用使用外部配置
+    # 注意：下面 ${VAR} 是 compose 自己的变量替换语法，取值来自"运行 docker
+    # compose 那台机器"的 shell 环境或 compose 目录下的 .env —— 跟上面
+    # env_file 指向的 config/secrets/.env 是两条不同路径。如果这里列出的
+    # 变量没有在 compose 侧单独 export/配置，会被替换成空字符串，反而覆盖掉
+    # env_file 里的真实值。新增变量前先确认这台机器的 compose 侧也配了它，
+    # 否则更安全的做法是只放进 config/secrets/.env、不在这里重复声明。
     environment:
       - PYTHONUNBUFFERED=1
       - CONFIG_FILE=/app/config/mcp.yaml
       - FEISHU_APP_ID=${FEISHU_APP_ID}
       - FEISHU_APP_SECRET=${FEISHU_APP_SECRET}
       - LLM_API_KEY=${LLM_API_KEY}
+      - WECHAT_API_KEY=${WECHAT_API_KEY}
     ports:
       - "8000:8000"
     healthcheck:
