@@ -168,6 +168,7 @@ async def startup_event() -> None:
 
 @app.on_event("shutdown")
 async def shutdown_event() -> None:
+    handler = getattr(app.state, "handler", None)
     engine: BotEngine = getattr(app.state, "engine", None)
     handler = getattr(app.state, "handler", None)
     if handler and handler._mcp_manager:
