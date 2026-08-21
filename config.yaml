@@ -69,6 +69,18 @@ rate_limit:
   # 全局每秒最大请求数
   global_per_second: 10
 
+# ---------- MCP Server（可选） ----------
+# MCP (Model Context Protocol) SSE transport — 让飞书机器人接入外部 Tool
+mcp:
+  # 是否启用 MCP 工具调用
+  enabled: false
+  servers: []
+  # 示例配置（取消注释并填入真实值后生效）:
+  # - name: "tavily-search"
+  #   url: "http://localhost:8000/sse"
+  #   headers: {}
+  #   timeout: 5.0
+
 # ---------- 日志 ----------
 logging:
   level: "INFO"            # DEBUG / INFO / WARNING / ERROR

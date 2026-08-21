@@ -24,16 +24,17 @@ class MessageHandler:
         1. 检查是否满足触发条件（trigger_mode + response_scope）
         2. 过滤消息长度
         3. 群聊中去除 @占位符文本
-        4. 追加到对话上下文
-        5. 调用 LLM 获取回复
-        6. 将回复发送到飞书
+        4. [新增] MCP Tool 路由 → 匹配最合适的工具并执行
+        5. 追加到对话上下文
+        6. 调用 LLM 获取回复（带上 Tool 结果作为上下文）
+        7. 将回复发送到飞书
     """
 
     def __init__(
         self,
-        llm_client: LLMClient,
+        llm_client: Any,
         *,
-        send_reply_fn: Callable[[str], Awaitable[None]],
+        send_reply_fn: Callable[[str, str, str, str], Awaitable[None]],
         trigger_mode: str = "at_or_direct",   # at_or_direct | only_at
         response_scope: str = "group_and_dm",  # group_and_dm | group_only | dm_only
         strip_at_placeholder: bool = True,
@@ -41,6 +42,8 @@ class MessageHandler:
         max_reply_length: int = 4000,
         max_messages_per_user: int = 20,
         ttl_seconds: int = 0,
+        mcp_manager: Any | None = None,      # MCPManager or None
+        use_mcp_tools: bool = True,          # 是否启用 MCP 工具调用
     ) -> None:
         self._llm = llm_client
         self.send_reply_fn = send_reply_fn
@@ -53,6 +56,9 @@ class MessageHandler:
             max_messages_per_user=max_messages_per_user,
             ttl_seconds=ttl_seconds,
         )
+        self._mcp_manager = mcp_manager
+        self._use_mcp_tools = use_mcp_tools
+        self._tool_router: Any | None = None
 
         # 简易 TokenBucket
         self._user_buckets: dict[str, list[float]] = {}
@@ -127,13 +133,39 @@ class MessageHandler:
             len(clean_text),
         )
 
-        # 7. 构建历史消息列表 + 追加 user 消息
+        # 4a. [新增] MCP Tool 路由与执行
+        tool_context = ""
+        if self._use_mcp_tools and self._mcp_manager and self._mcp_manager.is_connected:
+            from mcp.tools import ToolRouter
+            if not self._tool_router:
+                tools = self._mcp_manager.list_all_tools()
+                self._tool_router = ToolRouter(tools)
+            matched = self._tool_router.route(clean_text, top_k=1)
+            if matched:
+                idx, best_tool = matched[0]
+                try:
+                    result = await self._mcp_manager.call_tool_by_name(
+                        best_tool.name, {"query": clean_text}
+                    )
+                    if result["ok"]:
+                        tool_context = f"\n\n--- MCP Tool Result ---\n{best_tool.description}\nResult: {result['result']}"
+                        logger.info("🔧 Used MCP tool '%s' for user query", best_tool.name)
+                    else:
+                        tool_context = f"\n\n--- MCP Tool Error ---\n{best_tool.name}: {result['errors'][0]}"
+                        logger.warning("⚠️ MCP tool '%s' error: %s", best_tool.name, result['errors'])
+                except Exception as e:
+                    logger.error("MCP tool call failed: %s", e)
+
+        # 5. 构建历史消息列表 + 追加 user 消息
         history = self._context.get_messages(session_key)
         await self._context.add_message(session_key, "user", clean_text)
 
-        # 8. 调用 LLM
+        # 8. 调用 LLM（带上 MCP Tool 结果作为上下文）
         try:
-            reply = await self._llm.chat(history + [{"role": "user", "content": clean_text}])
+            llm_messages = history + [{"role": "user", "content": clean_text}]
+            if tool_context:
+                llm_messages[-1]["content"] += tool_context
+            reply = await self._llm.chat(llm_messages)
         except Exception as e:
             logger.error("LLM 调用失败: {}", e)
             reply = "抱歉，服务暂时不可用，请稍后再试。"

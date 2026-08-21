@@ -84,7 +84,16 @@ async def startup_event() -> None:
         system_prompt=llm_cfg.get("system_prompt", ""),
     )
 
-    # ── 3. Handler ─────────────────────────────────────────────
+    # ── 3. [新增] MCP Manager（可选） ─────────────────────────────
+    mcp_manager = None
+    mcp_cfg = cfg.get("mcp", {})
+    if mcp_cfg.get("enabled") and mcp_cfg.get("servers"):
+        from mcp.manager import MCPManager
+        mcp_manager = MCPManager(mcp_cfg["servers"])
+        n_tools = await mcp_manager.connect()
+        logger.info("🔌 MCP initialized: %d tools loaded", n_tools)
+
+    # ── 4. Handler ─────────────────────────────────────────────
     bot_cfg = cfg.get("bot", {})
     ctx_cfg = cfg.get("context", {})
     rl_cfg = cfg.get("rate_limit", {})
@@ -129,6 +138,8 @@ async def startup_event() -> None:
         max_reply_length=bot_cfg.get("max_reply_length", 4000),
         max_messages_per_user=ctx_cfg.get("max_messages_per_user", 20),
         ttl_seconds=ctx_cfg.get("ttl_seconds", 0),
+        mcp_manager=mcp_manager,
+        use_mcp_tools=mcp_cfg.get("enabled", False),
     )
 
     # ── 4. BotEngine (WebSocket) ───────────────────────────────
@@ -158,6 +169,10 @@ async def startup_event() -> None:
 @app.on_event("shutdown")
 async def shutdown_event() -> None:
     engine: BotEngine = getattr(app.state, "engine", None)
+    handler = getattr(app.state, "handler", None)
+    if handler and handler._mcp_manager:
+        await handler._mcp_manager.close()
+        logger.info("已关闭所有 MCP 连接")
     if engine:
         await engine.stop()
         logger.info("已断开飞书 WebSocket 连接")
