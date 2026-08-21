@@ -65,10 +65,58 @@ source .venv/bin/activate
 python main.py
 ```
 
-### 4. Docker 部署
+## Docker 部署
 
 ```bash
+# 1. 复制项目到服务器
+scp -r feishu-bot-service user@server:/opt/
+
+# 2. 填入凭证（外部文件，不进入 git）
+mkdir -p config/secrets config/mcp-server
+echo "FEISHU_APP_ID=cli_xxx" > config/secrets/.env
+echo "FEISHU_APP_SECRET=xxx" >> config/secrets/.env
+echo "LLM_API_KEY=sk-xxx" >> config/secrets/.env
+
+# 3. 启动
 docker compose up --build -d
+
+# 4. 检查状态
+docker compose ps
+curl http://localhost:8000/health
+```
+
+### 目录结构（含挂载点）
+
+```
+/opt/feishu-bot-service/       ← 代码（git pull）
+├── config/
+│   ├── secrets/               ← 🔒 敏感配置（不提交）
+│   │   └── .env               ← 飞书 + LLM 凭证
+│   └── mcp-server/            ← 🧩 MCP Server 配置（可选）
+│       └── mcp.yaml           ← SSE endpoints + 认证头
+├── main.py                    # FastAPI 入口
+├── bot/                       # 飞书 Bot 核心逻辑
+├── llm/                       # LLM 客户端
+├── mcp/                       # MCP 插件层（SSE Transport）
+├── utils/                     # 工具函数
+├── tests/                     # 单元测试
+├── Dockerfile                 # 容器化构建
+├── docker-compose.yml         # 一键部署 + 卷挂载
+└── .env.example               # 环境变量模板
+```
+
+### 更新 MCP / API Key
+
+编辑 `config/secrets/.env` 后执行：
+
+```bash
+docker compose up -d   # 热重载环境变量
+```
+
+编辑 `config/mcp-server/mcp.yaml` 后执行：
+
+```bash
+docker compose restart feishu-bot
 ```
 
 ## 配置说明

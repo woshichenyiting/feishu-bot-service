@@ -84,16 +84,12 @@ async def startup_event() -> None:
         system_prompt=llm_cfg.get("system_prompt", ""),
     )
 
-    # ── 3. [新增] MCP Manager（可选） ─────────────────────────────
+    # ── 2. [新增] MCP Manager（可选，延迟到 WS 之后） ──────────────────
     mcp_manager = None
     mcp_cfg = cfg.get("mcp", {})
-    if mcp_cfg.get("enabled") and mcp_cfg.get("servers"):
-        from mcp.manager import MCPManager
-        mcp_manager = MCPManager(mcp_cfg["servers"])
-        n_tools = await mcp_manager.connect()
-        logger.info("🔌 MCP initialized: %d tools loaded", n_tools)
+    # 不在此处调用 connect — Handler 会按需懒加载
 
-    # ── 4. Handler ─────────────────────────────────────────────
+    # ── 3. Handler ─────────────────────────────────────────────
     bot_cfg = cfg.get("bot", {})
     ctx_cfg = cfg.get("context", {})
     rl_cfg = cfg.get("rate_limit", {})
@@ -168,8 +164,8 @@ async def startup_event() -> None:
 
 @app.on_event("shutdown")
 async def shutdown_event() -> None:
-    engine: BotEngine = getattr(app.state, "engine", None)
     handler = getattr(app.state, "handler", None)
+    engine: BotEngine = getattr(app.state, "engine", None)
     if handler and handler._mcp_manager:
         await handler._mcp_manager.close()
         logger.info("已关闭所有 MCP 连接")

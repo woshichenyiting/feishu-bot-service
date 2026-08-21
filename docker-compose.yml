@@ -8,10 +8,19 @@ services:
     image: feishu-bot-service:latest
     container_name: feishu-bot
     restart: unless-stopped
+    # 外部凭证文件 → 容器内 /etc/feishu-bot/secrets/.env
     env_file:
-      - .env
+      - ../config/secrets/.env
+    # MCP Server 配置挂载（可选）
+    volumes:
+      - ./config/mcp-server/mcp.yaml:/app/config/mcp.yaml:ro
+    # 环境变量：告诉应用使用外部配置
     environment:
       - PYTHONUNBUFFERED=1
+      - CONFIG_FILE=/app/config/mcp.yaml
+      - FEISHU_APP_ID=${FEISHU_APP_ID}
+      - FEISHU_APP_SECRET=${FEISHU_APP_SECRET}
+      - LLM_API_KEY=${LLM_API_KEY}
     ports:
       - "8000:8000"
     healthcheck:
@@ -19,3 +28,4 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+      start_period: 10s
