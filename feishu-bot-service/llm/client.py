@@ -10,12 +10,33 @@
 
 from __future__ import annotations
 
-import json
 from abc import ABC, abstractmethod
-from typing import Any
+from dataclasses import dataclass, field
+from typing import Any, Callable
 
 from loguru import logger
 from openai import AsyncOpenAI
+
+
+@dataclass
+class ToolCallRequest:
+    """模型要求执行的一次工具调用（对应 OpenAI 的 tool_calls[i]）。"""
+
+    id: str
+    name: str
+    arguments: str  # 原始 JSON 字符串，由调用方自行解析
+
+
+@dataclass
+class ChatResult:
+    """带 function calling 结果的一次模型回复。
+
+    ``tool_calls`` 为空列表时表示模型给出了最终文本回复；非空时调用方
+    需要执行这些工具、把结果以 ``role: tool`` 消息追加回去，再调一轮。
+    """
+
+    content: str | None
+    tool_calls: list[ToolCallRequest] = field(default_factory=list)
 
 
 class LLMClient(ABC):
@@ -31,10 +52,22 @@ class LLMClient(ABC):
         """Send a conversation turn and return model response text."""
 
     @abstractmethod
+    async def chat_with_tools(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None,
+    ) -> ChatResult:
+        """Send a conversation turn with function-calling tools offered.
+
+        Returns the raw ``content``/``tool_calls`` split so the caller can
+        run the execute-and-feed-back loop itself.
+        """
+
+    @abstractmethod
     async def chat_stream(
         self,
         messages: list[dict[str, str]],
-        on_token: callable[[str], None],
+        on_token: Callable[[str], None],
     ) -> str:
         """流式调用，每次收到 token 时回调 ``on_token(token)``。
 
@@ -86,8 +119,36 @@ class OpenAIClient(LLMClient):
         logger.debug("LLM response ({:.1f} chars)", len(text))
         return text
 
+    async def chat_with_tools(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None,
+    ) -> ChatResult:
+        combined = self._build_messages(messages)
+        resp = await self._client.chat.completions.create(
+            model=self._model,
+            messages=combined,
+            temperature=self._temperature,
+            max_tokens=self._max_tokens,
+            top_p=self._top_p,
+            # tools=[] 在部分 OpenAI 兼容网关上会被当成"禁止工具"处理，
+            # 跟不传是两回事；候选为空时统一传 None。
+            tools=tools or None,
+        )
+        msg = resp.choices[0].message
+        calls = [
+            ToolCallRequest(id=tc.id, name=tc.function.name, arguments=tc.function.arguments)
+            for tc in (msg.tool_calls or [])
+        ]
+        logger.debug(
+            "LLM tool-call turn: {} tool_calls, content={:.1f} chars",
+            len(calls),
+            len(msg.content or ""),
+        )
+        return ChatResult(content=msg.content, tool_calls=calls)
+
     async def chat_stream(
-        self, messages: list[dict[str, str]], on_token: callable[[str], None]
+        self, messages: list[dict[str, str]], on_token: Callable[[str], None]
     ) -> str:
         combined = self._build_messages(messages)
         chunks: list[str] = []

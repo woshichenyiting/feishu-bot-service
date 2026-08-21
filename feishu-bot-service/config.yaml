@@ -25,22 +25,20 @@ feishu:
 # ---------- LLM ----------
 llm:
   # 使用的模型名称
-  model: "qwen-plus"
+  model: "${LLM_MODEL:-qwen-plus}"
   # API Base URL（OpenAI 兼容格式）
   # 智谱: https://open.bigmodel.cn/api/paas/v4/
   # 通义千问: https://dashscope.aliyuncs.com/compatible-mode/v1
   # DeepSeek: https://api.deepseek.com/v1
-  base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+  base_url: "${LLM_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}"
   api_key: "${LLM_API_KEY}"           # 从环境变量读取
   # 对话参数
   temperature: 0.7
   max_tokens: 2048
   top_p: 0.9
-  # 系统提示词
-  system_prompt: |
-    你是一个有帮助的 AI 助手，使用简洁的语言回答问题。
-    如果问题不明确，请尝试理解用户意图并给出合理的回答。
-    使用与用户相同的语言进行回复。
+  # 系统提示词：已外挂到 config/system_prompt.txt，直接改那个纯文本文件即可
+  # （无需操心 YAML 多行块的缩进/转义），此处留空仅作为该文件缺失时的兜底。
+  system_prompt: ""
 
 # ---------- 消息处理 ----------
 bot:
@@ -68,6 +66,18 @@ rate_limit:
   per_user_per_second: 3
   # 全局每秒最大请求数
   global_per_second: 10
+
+# ---------- MCP Server（可选） ----------
+# MCP (Model Context Protocol) SSE transport — 让飞书机器人接入外部 Tool
+mcp:
+  # 是否启用 MCP 工具调用
+  enabled: false
+  servers: []
+  # 示例配置（取消注释并填入真实值后生效）:
+  # - name: "tavily-search"
+  #   url: "http://localhost:8000/sse"
+  #   headers: {}
+  #   timeout: 5.0
 
 # ---------- 日志 ----------
 logging:

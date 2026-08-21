@@ -18,6 +18,9 @@ aiohttp>=3.9.0
 # 日志
 loguru>=0.7.0
 
+# MCP Python SDK (SSE transport)
+mcp>=2.0.0
+
 # 测试依赖（可选）
 pytest>=8.0.0
 pytest-asyncio>=0.23.0

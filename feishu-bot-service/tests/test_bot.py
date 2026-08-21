@@ -55,7 +55,10 @@ def test_handler_clean_message():
     )
 
     assert handler._clean_message("hello @_user_1 world") == "hello world"
-    assert handler._clean_message("你是谁 @小助") == "你是谁"  # Chinese chars supported
+    # 只删飞书的 @_xxx 占位符：正文里正常的 "@某人" 要保留。
+    # 旧断言期望 "你是谁 @小助" -> "你是谁"，那是宽泛正则误删正文的 bug 行为，
+    # 飞书正文里被 @ 的人本来就只会是 @_user_N 占位符，不会是显示名。
+    assert handler._clean_message("你是谁 @小助") == "你是谁 @小助"
     assert handler._clean_message("没有提及") == "没有提及"
 
 

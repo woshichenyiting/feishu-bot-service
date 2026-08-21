@@ -65,10 +65,59 @@ source .venv/bin/activate
 python main.py
 ```
 
-### 4. Docker 部署
+## Docker 部署
 
 ```bash
+# 1. 复制项目到服务器
+scp -r feishu-bot-service user@server:/opt/
+
+# 2. 填入凭证（外部文件，不进入 git）
+mkdir -p config/secrets config/mcp-server
+echo "FEISHU_APP_ID=cli_xxx" > config/secrets/.env
+echo "FEISHU_APP_SECRET=xxx" >> config/secrets/.env
+echo "LLM_API_KEY=sk-xxx" >> config/secrets/.env
+
+# 3. 启动
 docker compose up --build -d
+
+# 4. 检查状态
+docker compose ps
+curl http://localhost:8000/health
+```
+
+### 目录结构（含挂载点）
+
+```
+/opt/feishu-bot-service/       ← 代码（git pull）
+├── config/
+│   ├── secrets/               ← 🔒 敏感配置（不提交）
+│   │   └── .env               ← 飞书 + LLM 凭证
+│   ├── mcp-server/            ← 🧩 MCP Server 配置（可选）
+│   │   └── mcp.yaml           ← SSE endpoints + 认证头
+│   └── system_prompt.md       ← 🗣️ 人设/系统提示词（git 跟踪，Markdown）
+├── main.py                    # FastAPI 入口
+├── bot/                       # 飞书 Bot 核心逻辑
+├── llm/                       # LLM 客户端
+├── mcp_plugin/                # MCP 插件层（SSE Transport；改名自 mcp/ 以免与 pip 的 mcp SDK 撞包名）
+├── utils/                     # 工具函数
+├── tests/                     # 单元测试
+├── Dockerfile                 # 容器化构建
+├── docker-compose.yml         # 一键部署 + 卷挂载
+└── .env.example               # 环境变量模板
+```
+
+### 更新 MCP / API Key
+
+编辑 `config/secrets/.env` 后执行：
+
+```bash
+docker compose up -d   # 热重载环境变量
+```
+
+编辑 `config/mcp-server/mcp.yaml` 或 `config/system_prompt.md`（人设/系统提示词，Markdown 文档，直接改不用管 YAML 缩进转义）后执行：
+
+```bash
+docker compose restart feishu-bot
 ```
 
 ## 配置说明
@@ -103,23 +152,71 @@ docker compose up --build -d
 - `GET /health` — 健康检查
 - `POST /reloader` — (待实现) 热更新配置
 
+## MCP 插件集成（可选）
+
+飞书机器人支持通过 **SSE transport** 连接外部 [MCP Server](https://modelcontextprotocol.io/)，
+让用户消息自动调用工具、查询资源。
+
+### 工作原理
+
+```
+用户发消息 → Handler 匹配最合适的 Tool → MCP Client 执行 → 结果注入 LLM 上下文 → AI 回复
+```
+
+### 配置示例
+
+在 `config.yaml` 的 `mcp` 段添加 Server：
+
+```yaml
+mcp:
+  enabled: true                    # 必须设为 true
+  servers:
+    - name: "tavily-search"
+      url: "http://localhost:8000/sse"   # MCP Server SSE endpoint
+      headers: {}                          # 可选，如认证头
+      timeout: 5.0                         # 连接超时(秒)
+```
+
+### 支持的 MCP Server
+
+任何兼容 MCP 协议的 SSE Server 均可接入：
+
+| Server | 用途 |
+|--------|------|
+| [Tavily](https://github.com/nicepkg/tavily-mcp) | Web 搜索 |
+| [GitHub MCP](https://github.com/github/github-mcp-server) | GitHub 操作 |
+| [Notion MCP](https://github.com/makenotion/notion-mcp) | Notion 文档管理 |
+| [Linear MCP](https://linear.app/integrations/mcp) | Linear 项目管理 |
+
+### 开发自定义 Tool
+
+参考 [MCP Spec](https://modelcontextprotocol.io/specification/concepts/tools) 定义你的 Server，
+通过 HTTP POST + SSE Event Stream 暴露 Tools。
+
 ## 项目结构
 
 ```
 feishu-bot-service/
 ├── main.py              # FastAPI 入口，启动所有组件
-├── bot/
+├── bot/                 # 飞书 Bot 核心逻辑
 │   ├── __init__.py
 │   ├── engine.py        # BotEngine: WebSocket 监听 + HTTP Client
-│   ├── handler.py       # MessageHandler: 消息处理管道
+│   ├── handler.py       # MessageHandler: 消息处理管道（含 MCP Tool 调用）
 │   └── context.py       # ConversationContext: 对话上下文
-├── llm/
+├── llm/                 # LLM 客户端
 │   ├── __init__.py
 │   └── client.py        # LLMClient + OpenAIClient
-├── utils/
+├── mcp_plugin/          # MCP 插件层（SSE Transport；曾用名 mcp/，与 pip 的 mcp SDK 撞包名已改名）
+│   ├── __init__.py
+│   ├── client.py        # MCPClient — SSE transport 连接
+│   ├── manager.py       # MCPManager — 多 Server 管理
+│   └── tools.py         # ToolRouter — 语义匹配工具路由
+├── utils/               # 工具函数
 │   ├── __init__.py
 │   └── config.py        # 配置加载 (${VAR} 替换)
-├── config.yaml          # 默认配置
+├── tests/               # 单元测试
+│   └── test_bot.py
+├── config.yaml          # 默认配置（含 mcp_servers 示例）
 ├── requirements.txt     # Python 依赖
 ├── Dockerfile           # 容器化构建
 ├── docker-compose.yml   # 一键部署

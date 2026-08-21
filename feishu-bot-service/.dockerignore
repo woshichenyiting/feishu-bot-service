@@ -1,12 +1,27 @@
-.git
+# Git & Qwen
+.git/
 .gitignore
-.venv/
-.env
-*.pyc
+.qwen/
+.qwens/
+
+# Python
 __pycache__/
+*.pyc
+*.pyo
 .pytest_cache/
 *.egg-info/
-.qwen/
+dist/
+build/
+
+# Virtual envs
+.venv/
+venv/
+
+# Secrets (already gitignored, but extra safety)
+config/secrets/.env
+config/local.yaml
+
+# Local dev
+*.log
 .DS_Store
-README.md
-config.local.yaml
+.vscode/
