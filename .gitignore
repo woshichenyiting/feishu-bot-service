@@ -1,3 +1,5 @@
 # 外部配置目录（敏感 + 按需挂载）
 config/secrets/.env
 config/mcp-server/mcp.yaml
+config/local_config.yaml
+
