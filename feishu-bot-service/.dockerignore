@@ -1,0 +1,12 @@
+.git
+.gitignore
+.venv/
+.env
+*.pyc
+__pycache__/
+.pytest_cache/
+*.egg-info/
+.qwen/
+.DS_Store
+README.md
+config.local.yaml
