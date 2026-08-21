@@ -1,6 +1,10 @@
 """配置加载模块。
 
-优先级：config.yaml → config.local.yaml（被 .gitignore 排除）→ 环境变量
+分层叠加，后面的层覆盖前面的层（同名字段深合并，不是整段替换）：
+    config.yaml（默认值，git 跟踪）
+        → config.local.yaml（本地/部署覆盖，被 .gitignore 排除，可选）
+        → CONFIG_FILE 环境变量指定的文件（最高优先级，可选 —
+          例如只包含 `mcp:` 段的 config/mcp-server/mcp.yaml）
 环境变量通过 ${VAR_NAME} 语法在 YAML 中引用。
 """
 
@@ -40,26 +44,39 @@ def _walk(obj):
     return obj
 
 
-def load_config(config_path: str | None = None) -> dict:
-    """加载并解析配置文件。
+def _deep_merge(base: dict, override: dict) -> dict:
+    """递归合并两个 dict：``override`` 中的字段覆盖 ``base``，但嵌套 dict
+    是逐 key 合并而非整段替换——``override`` 只写了 ``mcp.enabled``，
+    ``base`` 里 ``mcp.servers`` 之类的其他 key 会保留，不会被整段清空。"""
+    result = dict(base)
+    for key, value in override.items():
+        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+            result[key] = _deep_merge(result[key], value)
+        else:
+            result[key] = value
+    return result
 
-    优先使用 CONFIG_FILE 环境变量指定的路径，否则依次尝试
-    ``config.local.yaml`` → ``config.yaml``。
+
+def load_config(config_path: str | None = None) -> dict:
+    """加载并分层合并配置文件。
+
+    始终按顺序加载并深合并：``config.yaml``（默认值）→
+    ``config.local.yaml``（若存在）→ ``config_path`` 参数指定的文件，
+    若未传参数则改用 ``CONFIG_FILE`` 环境变量指定的路径（若设置且文件
+    存在）。每一层只需要写自己关心的字段——不需要在
+    ``config/mcp-server/mcp.yaml`` 里重复整份 ``feishu``/``llm`` 配置，
+    只写 ``mcp:`` 段即可覆盖 ``config.yaml`` 里的默认值。
     """
     global _CONFIG_CACHE
     if _CONFIG_CACHE is not None:
         return _CONFIG_CACHE
 
-    path = Path(config_path) if config_path else None
-    candidates = []
+    base_dir = Path(__file__).resolve().parent.parent
+    candidates = [base_dir / "config.yaml", base_dir / "config.local.yaml"]
 
-    if path:
-        candidates.append(Path(path).expanduser())
-    else:
-        candidates.extend([
-            Path(__file__).resolve().parent.parent / "config.local.yaml",
-            Path(__file__).resolve().parent.parent / "config.yaml",
-        ])
+    extra_path = config_path or os.environ.get("CONFIG_FILE")
+    if extra_path:
+        candidates.append(Path(extra_path).expanduser())
 
     merged: dict = {}
     loaded = False
@@ -69,7 +86,7 @@ def load_config(config_path: str | None = None) -> dict:
             with open(p, "r", encoding="utf-8") as f:
                 data = yaml.safe_load(f)
             if isinstance(data, dict):
-                merged.update(data)
+                merged = _deep_merge(merged, data)
             loaded = True
         else:
             logger.debug("跳过不存在的配置文件: {}", p)

@@ -25,12 +25,12 @@ feishu:
 # ---------- LLM ----------
 llm:
   # 使用的模型名称
-  model: "qwen-plus"
+  model: "${LLM_MODEL:-qwen-plus}"
   # API Base URL（OpenAI 兼容格式）
   # 智谱: https://open.bigmodel.cn/api/paas/v4/
   # 通义千问: https://dashscope.aliyuncs.com/compatible-mode/v1
   # DeepSeek: https://api.deepseek.com/v1
-  base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+  base_url: "${LLM_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}"
   api_key: "${LLM_API_KEY}"           # 从环境变量读取
   # 对话参数
   temperature: 0.7
@@ -38,9 +38,12 @@ llm:
   top_p: 0.9
   # 系统提示词
   system_prompt: |
-    你是一个有帮助的 AI 助手，使用简洁的语言回答问题。
-    如果问题不明确，请尝试理解用户意图并给出合理的回答。
-    使用与用户相同的语言进行回复。
+    你是一个全能的家庭与工作AI助手，名字叫【Anna】。你是一个专业、高效、贴心且有条不紊的智能助手。
+    身份：家庭与工作全能助手。
+    性格：专业、高效、严谨、温暖且富有耐心。
+    核心特质：既能高效处理工作事务、管理日程与任务，又能贴心照顾家庭日常，是用户的“得力助手”与“生活管家”。
+    输出长度：回答尽量保持在 3-4 句话以内，适合车载/智能音箱语音播报和屏幕显示。
+    人设维持：保持专业助理形象，语气词适度，绝不掉人设。
 
 # ---------- 消息处理 ----------
 bot:
