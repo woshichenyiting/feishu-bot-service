@@ -1,0 +1,16 @@
+# ============================================================
+# 自定义配置模板（复制为 config.local.yaml 后修改）
+# 此文件会被 docker-compose.yml 的 volumes 挂载到容器内
+# 不会随 git pull 覆盖你的自定义修改
+# ============================================================
+# 
+# 用法：
+#   cp config/local_config.example.yaml config/local_config.yaml
+#   # 编辑 local_config.yaml 中的 base_url / model
+#   docker compose restart feishu-bot
+#
+# -----------------------------------------------------------
+
+llm:
+  model: "qwen-plus"                          # ← 改这里
+  base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"  # ← 改这里

@@ -1,0 +1,27 @@
+# ============================================================
+# MCP Server 配置模板（复制为 mcp.yaml 后修改）
+# 此文件会被 docker-compose.yml 挂载到容器内，并通过 CONFIG_FILE
+# 环境变量叠加到 config.yaml 的默认配置之上——只需要写这里关心的
+# `mcp:` 段，不用重复 feishu/llm 等其他配置。
+#
+# 用法：
+#   cp config/mcp-server/mcp.example.yaml config/mcp-server/mcp.yaml
+#   # 编辑 mcp.yaml，填入真实的 server url / headers
+#   docker compose restart feishu-bot
+# ------------------------------------------------------------
+
+mcp:
+  # 是否启用 MCP 工具调用 —— 改成 true 才会实际连接下面的 servers
+  enabled: false
+  servers: []
+  # 示例（取消注释并填入真实值后生效）：
+  # servers:
+  #   - name: "tavily-search"                      # 工具来源标识，任意起名
+  #     url: "http://localhost:8000/sse"            # MCP Server 的 SSE endpoint
+  #     headers:                                    # 可选，认证头
+  #       Authorization: "Bearer ${TAVILY_MCP_TOKEN}"
+  #     timeout: 5.0                                # 连接超时（秒）
+  #   - name: "notion-mcp"
+  #     url: "https://mcp.notion.com/sse"
+  #     headers: {}
+  #     timeout: 10.0

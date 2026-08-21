@@ -1,0 +1,85 @@
+# ============================================================
+# 飞书机器人后端服务 — 默认配置
+# 复制为 config.local.yaml 后修改，不会被 git 跟踪
+# ============================================================
+
+# ---------- 飞书应用 ----------
+feishu:
+  app_id: "${FEISHU_APP_ID}"          # 从环境变量读取，或在此直接填写
+  app_secret: "${FEISHU_APP_SECRET}"  # 同上
+  # 事件签名加密密钥（v2+ 可选）
+  encrypt_key: ""                     # 留空表示不使用加密
+  # 事件 Token（v2+ 可选）
+  token: ""                           # 留空表示不验证
+  # WebSocket 模式
+  websocket:
+    # enabled: true 时走 WebSocket 长连接（自建服务推荐）
+    # enabled: false 时只启动 HTTP server（回调地址模式需去飞书后台配 Webhook）
+    enabled: true
+    # 消息优先级：10 = 最高（低优先级不会阻塞心跳）
+    priority: 10
+    # 启用订阅的事件列表
+    events:
+      - "im.message.receive_v1"
+
+# ---------- LLM ----------
+llm:
+  # 使用的模型名称
+  model: "${LLM_MODEL:-qwen-plus}"
+  # API Base URL（OpenAI 兼容格式）
+  # 智谱: https://open.bigmodel.cn/api/paas/v4/
+  # 通义千问: https://dashscope.aliyuncs.com/compatible-mode/v1
+  # DeepSeek: https://api.deepseek.com/v1
+  base_url: "${LLM_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}"
+  api_key: "${LLM_API_KEY}"           # 从环境变量读取
+  # 对话参数
+  temperature: 0.7
+  max_tokens: 2048
+  top_p: 0.9
+  # 系统提示词：已外挂到 config/system_prompt.txt，直接改那个纯文本文件即可
+  # （无需操心 YAML 多行块的缩进/转义），此处留空仅作为该文件缺失时的兜底。
+  system_prompt: ""
+
+# ---------- 消息处理 ----------
+bot:
+  # 触发方式：at_or_direct = @机器人与私聊都触发；only_at = 仅 @ 机器人触发
+  trigger_mode: "at_or_direct"
+  # 响应范围：group_and_dm = 群聊和私聊都响应；group_only = 仅群聊；dm_only = 仅私聊
+  response_scope: "group_and_dm"
+  # 是否自动去除群聊中的 @占位符文本
+  strip_at_placeholder: true
+  # 单条消息最大长度（超过则跳过）
+  max_message_length: 5000
+  # 单条回复最大长度
+  max_reply_length: 4000
+
+# ---------- 对话上下文 ----------
+context:
+  # 每个用户最多保存的消息条数（滑动窗口）
+  max_messages_per_user: 20
+  # 过期时间（秒），0 表示不过期
+  ttl_seconds: 0
+
+# ---------- 速率限制 ----------
+rate_limit:
+  # 每用户每秒最大请求数
+  per_user_per_second: 3
+  # 全局每秒最大请求数
+  global_per_second: 10
+
+# ---------- MCP Server（可选） ----------
+# MCP (Model Context Protocol) SSE transport — 让飞书机器人接入外部 Tool
+mcp:
+  # 是否启用 MCP 工具调用
+  enabled: false
+  servers: []
+  # 示例配置（取消注释并填入真实值后生效）:
+  # - name: "tavily-search"
+  #   url: "http://localhost:8000/sse"
+  #   headers: {}
+  #   timeout: 5.0
+
+# ---------- 日志 ----------
+logging:
+  level: "INFO"            # DEBUG / INFO / WARNING / ERROR
+  format: "{time:YYYY-MM-DD HH:mm:ss} | {level} | {name} | {message}"
